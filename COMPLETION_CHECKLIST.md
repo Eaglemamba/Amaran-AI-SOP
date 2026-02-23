@@ -1,7 +1,7 @@
 # Completion Checklist
 
 **Project:** AI SOP Knowledge Retrieval -- Amaran Biopharmaceutical CDMO
-**Last Updated:** 2026-02-23
+**Last Updated:** 2026-02-24
 **Legend:** [x] = Done | [ ] = Not started
 
 ---
@@ -31,7 +31,7 @@
 
 ### Infrastructure: Desensitization Script
 - [x] Basic redaction rules in sop_to_markdown.py (`REDACT_RULES`, `desensitize()`)
-- [ ] Dedicated desensitization script with full rule set -- `phase0_foundation/desensitization/`
+- [x] Dedicated desensitization script with full rule set -- `phase0_foundation/desensitization/amaran_redact.py` + `redaction_config.json` (GUI + CLI, 4 doc types, zone-based PDF redaction)
 - [ ] QA validation checklist (zero-leakage verification)
 
 ### Evaluation: Acceptance Test Suite
@@ -131,8 +131,9 @@
 - [ ] APQR summary report templates
 
 ### App #13: Deviation Report Generation
-- [ ] [[Placeholder]] templates for deviation reports -- `templates/`
-- [ ] AI-drafted investigation narratives -- `phase3_scale/deviation_report_gen/`
+- [x] [[Placeholder]] replacement engine (VBA macro) -- `phase3_scale/deviation_report_gen/AmaranPlaceholderReplace_DoubleBracket.bas`
+- [x] BPR report generator (QA Compliance Audit + Page Reconciliation from JSON) -- `phase3_scale/deviation_report_gen/amaran_report_generator_v1_3.py`
+- [ ] Deviation report .docx template with [[placeholders]] -- `templates/`
 - [ ] Human review workflow
 
 ### App #14: Meeting Minutes Search
@@ -149,7 +150,7 @@
 - [ ] Supplier assessment for API providers (Anthropic, Google)
 
 ### Phase 3 Gate
-- [ ] [[Placeholder]] methodology validated on deviation reports
+- [ ] [[Placeholder]] methodology validated on deviation reports (VBA macro + report generator ready; pending .docx template + end-to-end test)
 - [ ] Architecture Decision Gate assessment completed
 - [ ] APQR aggregation functional with real data
 - [ ] Validation Summary approved by QA
@@ -169,7 +170,7 @@
 ## Cross-Cutting / Shared
 
 ### Governance
-- [ ] IP and compliance summaries -- `governance/`
+- [x] IP and compliance summaries -- `phase0_foundation/gmp_docs/Amaran_AI_Document_Automation_IP_Compliance_Summary.md`
 - [ ] Data protection policies
 - [ ] Vendor/supplier assessments
 
@@ -189,17 +190,18 @@
 | Category | Done | Total | % |
 |----------|------|-------|---|
 | Strategy & Planning | 10 | 10 | 100% |
-| Phase 0 -- Foundation | 2 | 11 | 18% |
+| Phase 0 -- Foundation | 3 | 11 | 27% |
 | Phase 1 -- Quick Wins | 0 | 10 | 0% |
 | Phase 2 -- Expand | 0 | 16 | 0% |
-| Phase 3 -- Scale | 0 | 12 | 0% |
+| Phase 3 -- Scale | 2 | 13 | 15% |
 | Future | 0 | 4 | 0% |
-| Cross-Cutting | 0 | 6 | 0% |
-| **Total** | **12** | **69** | **17%** |
+| Cross-Cutting | 1 | 6 | 17% |
+| **Total** | **16** | **70** | **23%** |
 
-**Next priorities (from README.md):**
-1. Build dedicated desensitization script
+**Next priorities:**
+1. ~~Build dedicated desensitization script~~ -- DONE (`amaran_redact.py`)
 2. Convert 5-10 pilot SOPs to Markdown
 3. Define 10-15 acceptance test queries
 4. Draft 1-page AI Use Policy
 5. Test SOP Content Search accuracy in Gemini
+6. Create deviation report .docx template with [[placeholders]]
