@@ -31,5 +31,9 @@ Industry: Clinical-phase sterile fill-finish pharmaceutical manufacturing.
 - ICH Q9(R1) for risk assessments
 - ISPE GAMP for AI validation guidance (proportionate application)
 
+## Document Naming Conventions
+- SOPs: `QP-XXXX` (Quality Procedures) or `GP-XXXX` (General Procedures) — 4-digit suffix
+- WIs: `WI-XXX-YYY` or `WI-XX-YYY` — 2 or 3-digit prefix with sub-number suffix
+
 ## Current Phase
 Pre-Phase 0. Roadmap and strategy complete. Next: build desensitization script, convert pilot SOPs, define test queries.
