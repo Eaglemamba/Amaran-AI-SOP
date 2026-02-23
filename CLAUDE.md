@@ -33,7 +33,7 @@ Industry: Clinical-phase sterile fill-finish pharmaceutical manufacturing.
 
 ## Document Naming Conventions
 - SOPs: `QP-XXXX` (Quality Procedures) or `GP-XXXX` (General Procedures) — 4-digit suffix
-- WIs: `WI-XXX-YYY` or `WI-XX-YYY` — 2 or 3-digit prefix with sub-number suffix
+- WIs: `WI-XXX-YYY` or `WI-XX-YYY` — XXX/XX is department abbreviation (e.g., QA, QC, PRD), YYY is sequence number
 
 ## Current Phase
 Pre-Phase 0. Roadmap and strategy complete. Next: build desensitization script, convert pilot SOPs, define test queries.
