@@ -51,7 +51,7 @@ def file_to_md_markitdown(filepath: str) -> str:
 # ============================================================
 # 方法 3: PyMuPDF (PDF -> 文字, 輕量快速)
 # ============================================================
-def pdf_to_md_pymupdf(filepath: str) -> str:
+def pdf_to_md_pymupdf(filepath: str, skip_first_page: bool = True) -> str:
     """用 PyMuPDF 提取 PDF 文字，加上基本 Markdown 格式"""
     import fitz  # PyMuPDF
 
@@ -59,6 +59,9 @@ def pdf_to_md_pymupdf(filepath: str) -> str:
     pages = []
 
     for i, page in enumerate(doc):
+        # Skip scanned cover/signature page (usually page 1)
+        if skip_first_page and i == 0:
+            continue
         text = page.get_text("text")
         # 簡單的標題偵測：全大寫或短行可能是標題
         lines = text.split("\n")
@@ -82,6 +85,65 @@ def pdf_to_md_pymupdf(filepath: str) -> str:
 
 
 # ============================================================
+# Page 2 Header Parsing (Amaran SOP format)
+# ============================================================
+# Amaran SOP page 2 header pattern:
+#   Page X of Y
+#   中文標題
+#   English Title
+#   QP-0008.V08  (or similar doc code)
+#   Effective Date: DD/MM/YY
+#   CONFIDENTIAL
+#   DO NOT COPY
+
+# Lines to skip when looking for the English title
+_HEADER_SKIP = re.compile(
+    r'^(Page\s+\d+|CONFIDENTIAL|DO NOT COPY|Effective\s+Date)',
+    re.IGNORECASE,
+)
+
+# SOP/doc number patterns: QP-0008.V08, QA-0012, PR-001.V03, etc.
+_DOC_NUMBER = re.compile(
+    r'^([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)$'
+)
+
+# Mostly-CJK line (Chinese title) — skip when looking for English title
+_CJK_LINE = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
+
+
+def parse_page2_header(content: str) -> dict:
+    """Extract title, sop_number, effective_date from page 2 header lines."""
+    result = {"title": "", "sop_number": "", "effective_date": ""}
+    # Only inspect first 15 lines (header block)
+    lines = [l.strip() for l in content.split("\n")[:15] if l.strip()]
+
+    for line in lines:
+        # SOP / document number
+        m = _DOC_NUMBER.match(line)
+        if m and not result["sop_number"]:
+            result["sop_number"] = m.group(1)
+            continue
+
+        # Effective date
+        m = re.match(r'Effective\s+Date\s*[:：]\s*(.+)', line, re.IGNORECASE)
+        if m and not result["effective_date"]:
+            result["effective_date"] = m.group(1).strip()
+            continue
+
+        # Skip non-title lines
+        if _HEADER_SKIP.match(line):
+            continue
+        if _CJK_LINE.search(line):
+            continue
+
+        # English title: first remaining line that is long enough
+        if not result["title"] and len(line) > 3:
+            result["title"] = line
+
+    return result
+
+
+# ============================================================
 # YAML Front Matter 生成
 # ============================================================
 def generate_front_matter(filepath: str, content: str) -> str:
@@ -89,23 +151,23 @@ def generate_front_matter(filepath: str, content: str) -> str:
     filename = Path(filepath).stem
     ext = Path(filepath).suffix.lower()
 
-    # 嘗試從檔名或內容提取 SOP 編號
-    sop_number = ""
-    sop_match = re.search(r'(SOP[-_]?\w+[-_]?\d+)', filename, re.IGNORECASE)
-    if sop_match:
-        sop_number = sop_match.group(1)
-    else:
-        sop_match = re.search(r'(SOP[-_]?\w+[-_]?\d+)', content[:500], re.IGNORECASE)
+    # Parse structured header from page 2 (works best with pymupdf + skip_first_page)
+    header = parse_page2_header(content)
+
+    # SOP number: prefer header parse, then filename, then content regex
+    sop_number = header.get("sop_number", "")
+    if not sop_number:
+        sop_match = re.search(r'([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)', filename)
+        if not sop_match:
+            sop_match = re.search(r'([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)', content[:500])
         if sop_match:
             sop_number = sop_match.group(1)
 
-    # 嘗試從內容提取標題 (第一個看起來像標題的行)
-    title = filename  # fallback
-    for line in content.split("\n")[:20]:
-        stripped = line.strip().lstrip("#").strip()
-        if len(stripped) > 5 and len(stripped) < 200:
-            title = stripped
-            break
+    # Title: prefer header parse, then filename fallback
+    title = header.get("title", "") or filename
+
+    # Effective date (optional, informational)
+    effective_date = header.get("effective_date", "")
 
     metadata = {
         "title": title,
@@ -119,6 +181,8 @@ def generate_front_matter(filepath: str, content: str) -> str:
         "classification": "Internal",
         "tags": [],                     # 手動填寫
     }
+    if effective_date:
+        metadata["effective_date"] = effective_date
 
     yaml_str = yaml.dump(
         metadata,
