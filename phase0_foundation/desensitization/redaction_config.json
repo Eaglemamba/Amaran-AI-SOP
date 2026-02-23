@@ -1,0 +1,101 @@
+{
+    "_README": "Amaran BPR Redaction Config — edit zones to match your templates",
+    "_UNITS": "All values in pixels at 300 DPI. A4 at 300 DPI = 2480 x 3508 px",
+    "_COORDINATE_GUIDE": {
+        "top-left corner": "x=0, y=0",
+        "full page width": "w=2480",
+        "1cm at 300dpi": "~118 px",
+        "2cm at 300dpi": "~236 px"
+    },
+
+    "BPR": {
+        "description": "Batch Production Record (scanned)",
+        "header": {
+            "enabled": true,
+            "height_px": 200,
+            "note": "Blacks out top ~1.7cm of every page (product name in header)"
+        },
+        "footer": {
+            "enabled": false,
+            "height_px": 0
+        },
+        "cover_page_zones": [
+            {
+                "label": "Product name (cover)",
+                "x": 100, "y": 300, "w": 2200, "h": 150
+            },
+            {
+                "label": "Sponsor name (cover)",
+                "x": 100, "y": 500, "w": 2200, "h": 100
+            }
+        ],
+        "skip_pages": [3],
+        "skip_pages_note": "Page 3 = signature log with employee names. Skip = do not include in output."
+    },
+
+    "Campaign_Report": {
+        "description": "Campaign Report (digital PDF)",
+        "header": {
+            "enabled": true,
+            "height_px": 180,
+            "note": "Product name in header of every page"
+        },
+        "footer": {
+            "enabled": false,
+            "height_px": 0
+        },
+        "cover_page_zones": [
+            {
+                "label": "Product name (cover)",
+                "x": 100, "y": 400, "w": 2200, "h": 120
+            },
+            {
+                "label": "Sponsor name (cover)",
+                "x": 100, "y": 600, "w": 2200, "h": 100
+            }
+        ],
+        "skip_pages": []
+    },
+
+    "Stability_Protocol": {
+        "description": "Stability Study Protocol",
+        "header": {
+            "enabled": true,
+            "height_px": 180
+        },
+        "footer": {
+            "enabled": false,
+            "height_px": 0
+        },
+        "cover_page_zones": [
+            {
+                "label": "Product name (cover)",
+                "x": 100, "y": 350, "w": 2200, "h": 120
+            },
+            {
+                "label": "Sponsor (cover)",
+                "x": 100, "y": 550, "w": 2200, "h": 100
+            }
+        ],
+        "skip_pages": []
+    },
+
+    "Technical_Report": {
+        "description": "Technical Report / Analytical Report",
+        "header": {
+            "enabled": true,
+            "height_px": 180
+        },
+        "footer": {
+            "enabled": false,
+            "height_px": 0
+        },
+        "cover_page_zones": [
+            {
+                "label": "Product name (cover)",
+                "x": 100, "y": 350, "w": 2200, "h": 120
+            }
+        ],
+        "skip_pages": []
+    }
+}
