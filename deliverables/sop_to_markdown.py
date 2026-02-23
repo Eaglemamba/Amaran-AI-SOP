@@ -51,7 +51,7 @@ def file_to_md_markitdown(filepath: str) -> str:
 # ============================================================
 # 方法 3: PyMuPDF (PDF -> 文字, 輕量快速)
 # ============================================================
-def pdf_to_md_pymupdf(filepath: str) -> str:
+def pdf_to_md_pymupdf(filepath: str, skip_first_page: bool = True) -> str:
     """用 PyMuPDF 提取 PDF 文字，加上基本 Markdown 格式"""
     import fitz  # PyMuPDF
 
@@ -59,6 +59,9 @@ def pdf_to_md_pymupdf(filepath: str) -> str:
     pages = []
 
     for i, page in enumerate(doc):
+        # Skip scanned cover/signature page (usually page 1)
+        if skip_first_page and i == 0:
+            continue
         text = page.get_text("text")
         # 簡單的標題偵測：全大寫或短行可能是標題
         lines = text.split("\n")
