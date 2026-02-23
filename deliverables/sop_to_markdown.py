@@ -102,9 +102,11 @@ _HEADER_SKIP = re.compile(
     re.IGNORECASE,
 )
 
-# SOP/doc number patterns: QP-0008.V08, QA-0012, PR-001.V03, etc.
+# SOP/doc number patterns:
+#   SOPs: QP-0008.V08, GP-0012.V03, etc.
+#   WIs:  WI-QA-001, WI-PRD-012.V02, etc.
 _DOC_NUMBER = re.compile(
-    r'^([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)$'
+    r'^([A-Z]{2,4}-(?:[A-Z]{2,4}-)?\d{3,5}(?:\.V?\d+)?)$'
 )
 
 # Mostly-CJK line (Chinese title) — skip when looking for English title
@@ -157,9 +159,9 @@ def generate_front_matter(filepath: str, content: str) -> str:
     # SOP number: prefer header parse, then filename, then content regex
     sop_number = header.get("sop_number", "")
     if not sop_number:
-        sop_match = re.search(r'([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)', filename)
+        sop_match = re.search(r'([A-Z]{2,4}-(?:[A-Z]{2,4}-)?\d{3,5}(?:\.V?\d+)?)', filename)
         if not sop_match:
-            sop_match = re.search(r'([A-Z]{2,4}-\d{3,5}(?:\.V?\d+)?)', content[:500])
+            sop_match = re.search(r'([A-Z]{2,4}-(?:[A-Z]{2,4}-)?\d{3,5}(?:\.V?\d+)?)', content[:500])
         if sop_match:
             sop_number = sop_match.group(1)
 
@@ -172,7 +174,7 @@ def generate_front_matter(filepath: str, content: str) -> str:
     metadata = {
         "title": title,
         "sop_number": sop_number or "TBD",
-        "doc_type": "SOP",
+        "doc_type": "WI" if sop_number.startswith("WI-") else "SOP",
         "source_format": ext.replace(".", ""),
         "source_file": Path(filepath).name,
         "converted_date": datetime.now().strftime("%Y-%m-%d"),
