@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown + DMS 協作架構：GMP 環境中的 RAG 知識庫整合策略</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e3a5f;
+            --primary-light: #3b5998;
+            --accent: #7c3aed;
+            --accent-light: #e9d5ff;
+            --text: #334155;
+            --text-light: #64748b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --green: #047857;
+            --green-bg: #ecfdf5;
+            --green-border: #6ee7b7;
+            --amber: #92400e;
+            --amber-bg: #fffbeb;
+            --amber-border: #fcd34d;
+            --red: #9f1239;
+            --red-bg: #fff1f2;
+            --red-border: #fecdd3;
+            --blue-bg: #eff6ff;
+            --blue-border: #93c5fd;
+            --purple-bg: #faf5ff;
+            --purple-border: #c4b5fd;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.8; font-size: 16px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+        /* Header */
+        .header {
+            text-align: center; padding: 2.5rem 2rem;
+            background: linear-gradient(135deg, #1e3a5f 0%, #7c3aed 100%);
+            color: white; border-radius: 1rem; margin-bottom: 2rem;
+        }
+        .header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; line-height: 1.4; }
+        .header .subtitle { font-size: 0.95rem; opacity: 0.9; }
+        .tags { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+        .tag { padding: 0.2rem 0.6rem; border-radius: 2rem; font-size: 0.7rem; font-weight: 600; }
+        .tag-gmp { background: #a7f3d0; color: #065f46; }
+        .tag-rag { background: #bfdbfe; color: #1e3a8a; }
+        .tag-dms { background: #fecdd3; color: #9f1239; }
+        .tag-ai { background: #ddd6fe; color: #4c1d95; }
+
+        /* Context Banner */
+        .context-banner {
+            background: linear-gradient(135deg, var(--purple-bg), var(--blue-bg));
+            border: 1px solid var(--purple-border); border-radius: 0.75rem;
+            padding: 1.25rem; margin-bottom: 2rem; font-size: 0.9rem;
+        }
+        .context-banner strong { color: var(--accent); }
+
+        /* Section Headers */
+        .section-header {
+            font-size: 1.15rem; font-weight: 700; color: var(--primary);
+            margin: 2rem 0 1rem; padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent);
+        }
+        .section-header span { color: var(--text-light); font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
+
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border-radius: 1rem; padding: 2rem; color: white; margin-bottom: 2rem;
+        }
+        .arch-title { text-align: center; font-weight: 700; font-size: 1.1rem; margin-bottom: 1.5rem; }
+        .arch-layers { display: flex; flex-direction: column; gap: 0.75rem; }
+        .arch-layer {
+            display: grid; grid-template-columns: 140px 1fr; gap: 1rem;
+            align-items: center; padding: 0.75rem 1rem;
+            border-radius: 0.5rem; font-size: 0.85rem;
+        }
+        .layer-label { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .layer-content { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .layer-item {
+            padding: 0.3rem 0.7rem; border-radius: 0.4rem;
+            font-size: 0.8rem; font-weight: 500;
+        }
+        .layer-source { background: rgba(99,102,241,0.3); border: 1px solid rgba(99,102,241,0.5); }
+        .layer-md { background: rgba(16,185,129,0.3); border: 1px solid rgba(16,185,129,0.5); }
+        .layer-process { background: rgba(245,158,11,0.3); border: 1px solid rgba(245,158,11,0.5); }
+        .layer-ai { background: rgba(139,92,246,0.3); border: 1px solid rgba(139,92,246,0.5); }
+        .layer-user { background: rgba(236,72,153,0.3); border: 1px solid rgba(236,72,153,0.5); }
+        .arch-arrow { text-align: center; color: #94a3b8; font-size: 1.2rem; }
+        .arch-note { text-align: center; margin-top: 1rem; font-size: 0.75rem; color: #94a3b8; font-style: italic; }
+        @media (max-width: 600px) {
+            .arch-layer { grid-template-columns: 1fr; }
+        }
+
+        /* Content Cards */
+        .card {
+            background: white; border-radius: 0.75rem; padding: 1.25rem;
+            border: 1px solid var(--border); margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .card h3 { font-size: 0.95rem; color: var(--primary); margin-bottom: 0.75rem; }
+        .card p { font-size: 0.9rem; margin-bottom: 0.5rem; }
+
+        /* Two-col grid */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+        /* Strategy boxes */
+        .strategy-box {
+            border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem;
+        }
+        .strategy-box h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .strategy-box p { font-size: 0.85rem; line-height: 1.7; }
+        .strategy-green { background: var(--green-bg); border: 1px solid var(--green-border); }
+        .strategy-green h3 { color: var(--green); }
+        .strategy-amber { background: var(--amber-bg); border: 1px solid var(--amber-border); }
+        .strategy-amber h3 { color: var(--amber); }
+        .strategy-red { background: var(--red-bg); border: 1px solid var(--red-border); }
+        .strategy-red h3 { color: var(--red); }
+        .strategy-blue { background: var(--blue-bg); border: 1px solid var(--blue-border); }
+        .strategy-blue h3 { color: #1e40af; }
+
+        /* Tables */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0.75rem 0; }
+        .data-table th { background: var(--primary); color: white; padding: 0.6rem; text-align: left; font-weight: 600; }
+        .data-table td { padding: 0.6rem; border-bottom: 1px solid var(--border); }
+        .data-table tr:nth-child(even) { background: #f8fafc; }
+
+        /* Code blocks */
+        pre {
+            background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; font-family: 'Source Code Pro', monospace;
+            font-size: 0.8rem; line-height: 1.6; margin: 0.75rem 0;
+        }
+        .inline-code {
+            background: #f1f5f9; color: #7c3aed; padding: 0.15rem 0.4rem;
+            border-radius: 4px; font-size: 0.82rem; font-family: 'Source Code Pro', monospace;
+        }
+
+        /* Flow steps */
+        .flow-steps { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+        .flow-step {
+            flex: 1; min-width: 150px; text-align: center; padding: 0.75rem;
+            border-radius: 0.5rem; font-size: 0.8rem;
+        }
+        .flow-step .step-num {
+            display: inline-block; width: 1.5rem; height: 1.5rem; line-height: 1.5rem;
+            border-radius: 50%; background: var(--accent); color: white;
+            font-weight: 700; font-size: 0.7rem; margin-bottom: 0.3rem;
+        }
+        .flow-step .step-title { font-weight: 600; font-size: 0.8rem; margin-bottom: 0.2rem; }
+        .flow-step .step-desc { font-size: 0.75rem; color: var(--text-light); }
+        .fs-green { background: #d1fae5; }
+        .fs-blue { background: #dbeafe; }
+        .fs-purple { background: #ede9fe; }
+        .fs-amber { background: #fef3c7; }
+        .flow-arrow { display: flex; align-items: center; color: var(--text-light); font-size: 1.2rem; }
+
+        /* Highlight */
+        .hl { background: #fef3c7; padding: 0.1rem 0.3rem; border-radius: 3px; }
+        .hl-green { background: #d1fae5; padding: 0.1rem 0.3rem; border-radius: 3px; }
+
+        /* Bottom Line */
+        .bottom-line {
+            background: linear-gradient(135deg, #faf5ff, #f0f9ff);
+            padding: 1.5rem; border-radius: 12px; border-left: 4px solid #7c3aed;
+            margin: 2rem 0;
+        }
+        .bottom-line-header { font-weight: 700; color: #5b21b6; margin-bottom: 1rem; font-size: 1.05rem; }
+        .bottom-line-item { margin-bottom: 1rem; }
+        .bottom-line-item:last-child { margin-bottom: 0; }
+        .bottom-line-label { font-weight: 600; color: #6d28d9; font-size: 0.85rem; margin-bottom: 0.25rem; }
+        .bottom-line-text { font-size: 0.9rem; line-height: 1.7; color: #334155; }
+
+        /* Footer */
+        .footer {
+            text-align: center; padding: 1.25rem; background: white;
+            border-radius: 0.75rem; border: 1px solid var(--border);
+            font-size: 0.8rem; color: var(--text-light); margin-top: 2rem;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .chat-title {
+            margin-top: 0.5rem; padding: 0.3rem 0.6rem; background: #f1f5f9;
+            border-radius: 4px; display: inline-block;
+            font-family: 'Source Code Pro', monospace; font-size: 0.78rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="tags">
+            <span class="tag tag-gmp">GMP Compliance</span>
+            <span class="tag tag-rag">RAG</span>
+            <span class="tag tag-dms">DMS Integration</span>
+            <span class="tag tag-ai">AI Knowledge Base</span>
+        </div>
+        <h1>Markdown + DMS 協作架構</h1>
+        <div class="subtitle">GMP 環境中的 RAG 知識庫整合策略：從 SimplerQMS / SharePoint 到 AI 可檢索的訓練知識庫</div>
+    </div>
+
+    <!-- CONTEXT -->
+    <div class="context-banner">
+        <strong>Context:</strong> 這份文件回答一個關鍵的實務問題——在已經有 SimplerQMS、SharePoint 等驗證過的 DMS 系統的 CDMO 工廠中，如何讓 Markdown 格式的知識庫與現有系統共存，同時支援 RAG 驅動的新人訓練和知識檢索？核心原則：<strong>Markdown 是 AI 的介面語言，DMS 是合規的控制層——兩者互補而非互斥</strong>。
+    </div>
+
+    <!-- SECTION 1: THE CORE PROBLEM -->
+    <div class="section-header">1. 核心問題：兩個世界的衝突 <span>The Two-World Problem</span></div>
+
+    <div class="two-col">
+        <div class="strategy-blue">
+            <h3>DMS 的世界（合規優先）</h3>
+            <p>SimplerQMS、Veeva、MasterControl、SharePoint 等系統設計的核心目標是<strong>法規合規</strong>：21 CFR Part 11 電子簽章、稽核軌跡、存取控制、版本管理。文件格式通常是 Word/PDF，被鎖定在受控環境中。</p>
+            <p style="margin-top:0.5rem"><strong>優勢</strong>：完整的合規基礎設施</p>
+            <p><strong>劣勢</strong>：文件被「困住」——AI 難以直接讀取、切分、和檢索</p>
+        </div>
+        <div class="strategy-blue">
+            <h3>RAG 的世界（智能優先）</h3>
+            <p>RAG 系統需要<strong>結構化純文字</strong>才能高效運作：Markdown 的標題層級讓 chunking 精準、YAML Front Matter 讓 metadata 可篩選、純文字讓 embedding 品質最高。</p>
+            <p style="margin-top:0.5rem"><strong>優勢</strong>：AI 原生格式，檢索精度高</p>
+            <p><strong>劣勢</strong>：無合規控制——不能作為 GMP 記錄的最終載體</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>關鍵洞察：不是「選哪一個」而是「如何分層」</h3>
+        <p>答案不是在 DMS 和 Markdown 之間二選一，而是建立一個<span class="hl">雙軌分層架構</span>：DMS 維持其作為「唯一合規記錄來源」(Single Source of Truth) 的角色，Markdown 作為「AI 可讀的投影層」(AI-Readable Projection Layer) 存在。兩者之間有明確的同步機制和邊界。</p>
+    </div>
+
+    <!-- SECTION 2: ARCHITECTURE -->
+    <div class="section-header">2. 雙軌架構：資料流設計 <span>Dual-Track Architecture</span></div>
+
+    <div class="arch-diagram">
+        <div class="arch-title">Markdown + DMS 雙軌資料流架構</div>
+        <div class="arch-layers">
+            <div class="arch-layer" style="background:rgba(99,102,241,0.15);">
+                <div class="layer-label" style="color:#a5b4fc;">Source Layer<br>正式記錄層</div>
+                <div class="layer-content">
+                    <span class="layer-item layer-source">SimplerQMS (SOP/BMR)</span>
+                    <span class="layer-item layer-source">SharePoint (Training Docs)</span>
+                    <span class="layer-item layer-source">Veeva / MasterControl</span>
+                    <span class="layer-item layer-source">ERP / LIMS Data</span>
+                </div>
+            </div>
+            <div class="arch-arrow">&#8595; Export / API / Connector &#8595;</div>
+            <div class="arch-layer" style="background:rgba(16,185,129,0.15);">
+                <div class="layer-label" style="color:#6ee7b7;">Transform Layer<br>轉換層</div>
+                <div class="layer-content">
+                    <span class="layer-item layer-md">Word/PDF -> Markdown</span>
+                    <span class="layer-item layer-md">+ YAML Front Matter</span>
+                    <span class="layer-item layer-md">+ Metadata Injection</span>
+                    <span class="layer-item layer-md">Desensitization Filter</span>
+                </div>
+            </div>
+            <div class="arch-arrow">&#8595; Chunking + Embedding &#8595;</div>
+            <div class="arch-layer" style="background:rgba(245,158,11,0.15);">
+                <div class="layer-label" style="color:#fcd34d;">Index Layer<br>索引層</div>
+                <div class="layer-content">
+                    <span class="layer-item layer-process">Vector DB (Embedding)</span>
+                    <span class="layer-item layer-process">Markdown Header Split</span>
+                    <span class="layer-item layer-process">Metadata Filter Index</span>
+                    <span class="layer-item layer-process">Version Sync Registry</span>
+                </div>
+            </div>
+            <div class="arch-arrow">&#8595; Semantic Search + Retrieval &#8595;</div>
+            <div class="arch-layer" style="background:rgba(139,92,246,0.15);">
+                <div class="layer-label" style="color:#c4b5fd;">AI Layer<br>智能層</div>
+                <div class="layer-content">
+                    <span class="layer-item layer-ai">Claude / GPT RAG</span>
+                    <span class="layer-item layer-ai">Citation + Source Link</span>
+                    <span class="layer-item layer-ai">Answer Grounding</span>
+                </div>
+            </div>
+            <div class="arch-arrow">&#8595; &#8595;</div>
+            <div class="arch-layer" style="background:rgba(236,72,153,0.15);">
+                <div class="layer-label" style="color:#f9a8d4;">Consumer Layer<br>使用者層</div>
+                <div class="layer-content">
+                    <span class="layer-item layer-user">New Employee Onboarding</span>
+                    <span class="layer-item layer-user">SOP Quick Search</span>
+                    <span class="layer-item layer-user">Deviation Ref Lookup</span>
+                    <span class="layer-item layer-user">Training Quiz Gen</span>
+                </div>
+            </div>
+        </div>
+        <div class="arch-note">DMS = Single Source of Truth (合規) | Markdown = AI-Readable Projection (智能) | 單向資料流：DMS -> Markdown -> RAG</div>
+    </div>
+
+    <!-- SECTION 3: DMS-SPECIFIC STRATEGIES -->
+    <div class="section-header">3. 各 DMS 平台的整合策略 <span>Platform-Specific Integration</span></div>
+
+    <div class="card">
+        <h3>SimplerQMS</h3>
+        <p>SimplerQMS 基於 Microsoft 365 / SharePoint Online 構建，文件用 Word/Excel/PowerPoint 編輯，儲存在 SimplerQMS Cloud 中。它提供 API 整合能力，可連接 ERP、CRM 等外部系統。</p>
+        <p style="margin-top:0.5rem"><strong>整合路徑</strong>：</p>
+        <table class="data-table">
+            <tr><th>方式</th><th>機制</th><th>複雜度</th><th>適用場景</th></tr>
+            <tr>
+                <td><strong>手動匯出</strong></td>
+                <td>從 SimplerQMS 匯出已批准文件的 Word/PDF，用腳本轉換為 Markdown</td>
+                <td>Low</td>
+                <td>初期驗證概念 (POC)</td>
+            </tr>
+            <tr>
+                <td><strong>API 整合</strong></td>
+                <td>利用 SimplerQMS API 自動拉取已發布版本，透過 Make.com 或 Python 腳本轉換</td>
+                <td>Medium</td>
+                <td>定期同步（每日/每週）</td>
+            </tr>
+            <tr>
+                <td><strong>SharePoint Connector</strong></td>
+                <td>因 SimplerQMS 底層是 SharePoint，可用 Microsoft Graph API 或 Azure AI Search 的 SharePoint connector 直接索引</td>
+                <td>Medium-High</td>
+                <td>企業級部署</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>SharePoint (獨立使用)</h3>
+        <p>如果你的組織直接用 SharePoint 管理訓練文件、SOP 非正式版本、或部門知識庫，整合選項最豐富：</p>
+        <table class="data-table">
+            <tr><th>方式</th><th>機制</th><th>複雜度</th><th>適用場景</th></tr>
+            <tr>
+                <td><strong>Azure AI Search</strong></td>
+                <td>原生 SharePoint connector，自動索引、chunking、vectorization。Microsoft 稱之為「knowledge grounding for copilots」</td>
+                <td>Medium</td>
+                <td>已有 Azure 訂閱的組織</td>
+            </tr>
+            <tr>
+                <td><strong>Microsoft Graph API</strong></td>
+                <td>透過 Graph API 存取 SharePoint 文件庫，拉取文件內容和 metadata，轉為 Markdown 後入 vector DB</td>
+                <td>Medium</td>
+                <td>自建 RAG pipeline</td>
+            </tr>
+            <tr>
+                <td><strong>Third-party RAG Platform</strong></td>
+                <td>Pathway、Ragie、LlamaIndex 等提供現成 SharePoint connector，支援即時同步和增量更新</td>
+                <td>Low-Medium</td>
+                <td>快速部署</td>
+            </tr>
+            <tr>
+                <td><strong>Make.com Automation</strong></td>
+                <td>用 Make.com 的 SharePoint 模組監控文件變更，觸發 Markdown 轉換 + Claude API 處理</td>
+                <td>Low</td>
+                <td>與你現有工具鏈整合</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>其他 DMS（Veeva Vault、MasterControl、TrackWise）</h3>
+        <p>這些企業級 DMS 通常有 REST API 可供整合，但存取權限和資料匯出可能需要 IT 和 QA 部門的批准。核心策略不變：<span class="hl">從 DMS 匯出 -> 脫敏 -> 轉 Markdown -> 建索引</span>。差異在於 connector 的可用性和自動化程度。</p>
+    </div>
+
+    <!-- SECTION 4: THE TRANSFORM PIPELINE -->
+    <div class="section-header">4. 轉換管道：從 DMS 文件到 AI-Ready Markdown <span>The Transform Pipeline</span></div>
+
+    <div class="flow-steps">
+        <div class="flow-step fs-green">
+            <div class="step-num">1</div>
+            <div class="step-title">Source</div>
+            <div class="step-desc">DMS 匯出<br>Word/PDF</div>
+        </div>
+        <div class="flow-arrow">-></div>
+        <div class="flow-step fs-amber">
+            <div class="step-num">2</div>
+            <div class="step-title">Desensitize</div>
+            <div class="step-desc">脫敏<br>[REDACTED]</div>
+        </div>
+        <div class="flow-arrow">-></div>
+        <div class="flow-step fs-blue">
+            <div class="step-num">3</div>
+            <div class="step-title">Convert</div>
+            <div class="step-desc">轉為 Markdown<br>+ YAML Metadata</div>
+        </div>
+        <div class="flow-arrow">-></div>
+        <div class="flow-step fs-purple">
+            <div class="step-num">4</div>
+            <div class="step-title">Chunk</div>
+            <div class="step-desc">按 H2 切分<br>Embedding</div>
+        </div>
+        <div class="flow-arrow">-></div>
+        <div class="flow-step fs-green">
+            <div class="step-num">5</div>
+            <div class="step-title">Index</div>
+            <div class="step-desc">Vector DB<br>可檢索</div>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <h3>Step 2: 脫敏規則 (Critical for GMP)</h3>
+            <p>在轉換前，必須過濾敏感資訊。建議建立一個自動化脫敏腳本：</p>
+<pre># desensitize.py - 脫敏規則範例
+REDACT_PATTERNS = {
+    r'(?i)batch\s*#?\s*\d+': '[BATCH_REDACTED]',
+    r'(?i)client:\s*\w+': 'Client: [REDACTED]',
+    r'(?i)product:\s*\w+': 'Product: [REDACTED]',
+    r'\b\d{3}-\d{2}-\d{4}\b': '[ID_REDACTED]',
+    # 保留通用流程知識，移除客戶/產品特定資訊
+}
+# 白名單：法規編號、設備型號等通用資訊不脫敏
+KEEP_PATTERNS = [
+    r'21 CFR Part \d+',
+    r'SA25|Vanrx|RABS|cRABS',
+    r'PIC/S GMP',
+]</pre>
+        </div>
+        <div class="card">
+            <h3>Step 3: Markdown 轉換 + YAML Front Matter</h3>
+            <p>轉換後的 Markdown 應包含豐富的 metadata，讓 RAG 系統能按維度篩選：</p>
+<pre>---
+title: "SOP-MFG-042: 無菌充填隔離器操作程序"
+doc_type: SOP
+department: Manufacturing
+equipment: [SA25, Vanrx Isolator]
+gmp_area: Aseptic-Fill-Finish
+revision: "Rev 05"
+effective_date: 2025-01-15
+source_dms: SimplerQMS
+source_doc_id: DOC-2025-0042
+classification: Non-Confidential
+tags: [aseptic, fill-finish, isolator, gowning]
+---
+
+## 1. 目的
+本 SOP 規範無菌充填隔離器的操作程序...
+
+## 2. 適用範圍
+適用於 [REDACTED] 產品線的充填作業...
+
+## 3. 操作步驟
+### 3.1 開機前準備
+### 3.2 環境監控確認
+### 3.3 充填參數設定</pre>
+        </div>
+    </div>
+
+    <!-- SECTION 5: NEW EMPLOYEE TRAINING USE CASE -->
+    <div class="section-header">5. 應用場景：新人訓練知識庫 <span>New Employee Onboarding RAG</span></div>
+
+    <div class="strategy-green">
+        <h3>為什麼 RAG 訓練系統對 CDMO 特別有價值？</h3>
+        <p>CDMO 新進人員面臨獨特挑戰：需要同時掌握通用 GMP 知識（法規、ALCOA+、GDP）和客戶特定的製程知識（充填參數、設備 SOP、偏差歷史）。傳統方式是「跟資深員工學」+「讀完整本 SOP」——效率低且不一致。RAG 系統可以讓新人用自然語言提問，獲得引用來源的精準回答。研究顯示，導入 RAG 輔助的入職訓練可加速 30-40% 的新人生產力養成時間。</p>
+    </div>
+
+    <div class="card">
+        <h3>Training RAG 的知識分層設計</h3>
+        <table class="data-table">
+            <tr><th>知識層級</th><th>內容來源</th><th>存放方式</th><th>合規要求</th></tr>
+            <tr>
+                <td><strong>Level 1: 通用 GMP</strong></td>
+                <td>GMP 基礎、ALCOA+、GDP 原則、衛生規範</td>
+                <td>Markdown 知識庫（原創內容）</td>
+                <td>Low - 公開知識</td>
+            </tr>
+            <tr>
+                <td><strong>Level 2: 公司流程</strong></td>
+                <td>已脫敏的 SOP 摘要、設備操作概要、部門職責</td>
+                <td>從 DMS 匯出 + 脫敏 + Markdown</td>
+                <td>Medium - 需脫敏</td>
+            </tr>
+            <tr>
+                <td><strong>Level 3: 設備專用</strong></td>
+                <td>SA25 操作要點、隔離器維護、環境監控 SOP</td>
+                <td>從 DMS 匯出 + 脫敏 + Markdown</td>
+                <td>Medium - 需脫敏 + 審查</td>
+            </tr>
+            <tr>
+                <td><strong>Level 4: 案例學習</strong></td>
+                <td>匿名化偏差調查、CAPA 案例、審計觀察</td>
+                <td>手動編寫 Markdown 案例</td>
+                <td>High - 需 QA 審查</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>新人可能的提問 -> RAG 回答範例</h3>
+<pre style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;">
+Q: "進入無菌充填區前需要做哪些準備？"
+
+A: 根據 SOP-MFG-042 Rev 05，進入無菌充填區的準備步驟包括：
+   1. 完成更衣程序（參考 SOP-MFG-015 更衣操作程序）
+   2. 確認環境監控系統狀態正常（溫度、濕度、微粒計數）
+   3. 檢查隔離器手套完整性
+   4. 確認批次記錄已準備就緒
+
+   [Source: SOP-MFG-042, Section 3.1 | SimplerQMS Doc ID: DOC-2025-0042]
+   [Source: SOP-MFG-015, Section 2.3 | SimplerQMS Doc ID: DOC-2024-0015]
+</pre>
+        <p style="font-size:0.85rem;color:var(--text-light);margin-top:0.5rem;">
+            關鍵設計：每個回答都附帶<strong>來源引用</strong>（SOP 編號 + DMS 文件 ID），新人可以點擊回到 DMS 查看正式原文。AI 回答是「導航」而非「替代」。
+        </p>
+    </div>
+
+    <!-- SECTION 6: SYNC STRATEGY -->
+    <div class="section-header">6. 同步策略：保持 Markdown 與 DMS 一致 <span>Keeping in Sync</span></div>
+
+    <div class="two-col">
+        <div class="strategy-amber">
+            <h3>最大風險：版本不一致</h3>
+            <p>如果 DMS 中的 SOP 已更新到 Rev 06，但 RAG 知識庫還在引用 Rev 05 的內容，新人會收到過時的指導。在 GMP 環境中，這不只是「不方便」——這是合規風險。</p>
+        </div>
+        <div class="strategy-green">
+            <h3>緩解策略</h3>
+            <p><strong>1. 單向資料流</strong>：永遠只從 DMS -> Markdown，絕不反向。DMS 是唯一真相來源。</p>
+            <p><strong>2. 版本戳記</strong>：YAML 中記錄 source_doc_id 和 revision，每次同步時比對。</p>
+            <p><strong>3. 定期同步</strong>：設定 weekly batch job 或用 Make.com 監控 DMS 變更事件。</p>
+            <p><strong>4. 過期標記</strong>：如果 RAG 發現引用的文件版本已過期，回答時附帶警告。</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Make.com 同步工作流範例</h3>
+<pre># Make.com Scenario: DMS -> Markdown Sync
+# 觸發: 每週一 06:00 或 SharePoint 文件修改事件
+
+1. [SharePoint] Watch Files in /SOPs/ folder
+   Filter: Modified after last sync timestamp
+
+2. [HTTP] Download modified files (.docx/.pdf)
+
+3. [Python/Script] Convert to Markdown
+   - mammoth (docx->md) or PyMuPDF (pdf->md)
+   - Apply desensitization rules
+   - Inject YAML Front Matter from SharePoint metadata
+
+4. [Vector DB API] Update embeddings
+   - Delete old chunks for this doc_id
+   - Re-chunk and re-embed updated Markdown
+
+5. [Log] Record sync event
+   - doc_id, old_rev, new_rev, timestamp, status</pre>
+    </div>
+
+    <!-- SECTION 7: IMPLEMENTATION ROADMAP -->
+    <div class="section-header">7. 實施路線圖 <span>Implementation Roadmap</span></div>
+
+    <div class="strategy-green">
+        <h3>Phase 1: POC（2-4 週）— 用 Claude Projects 驗證概念</h3>
+        <p>選 5-10 份已公開的通用 SOP（如更衣程序、環境監控、清潔驗證），手動轉為 Markdown + YAML Front Matter，上傳到 Claude Project 作為 Knowledge Base。測試新人常見問題的回答品質。<strong>零基礎設施成本，立即可行</strong>。</p>
+    </div>
+    <div class="strategy-amber">
+        <h3>Phase 2: Pilot（1-2 月）— 建立自動化管道</h3>
+        <p>擴大到 30-50 份文件。建立 Make.com 或 Python 腳本的自動轉換管道（SharePoint/SimplerQMS -> Markdown）。部署輕量 Vector DB（如 Chroma 或 Pinecone free tier）。讓 2-3 位新進員工實際使用，收集回饋。</p>
+    </div>
+    <div class="strategy-blue">
+        <h3>Phase 3: Scale（3-6 月）— 企業級部署</h3>
+        <p>整合 Azure AI Search（如果用 Microsoft 生態系）或自建 RAG pipeline。覆蓋所有 Level 1-3 知識。建立 QA 審查流程確保脫敏品質。向管理層展示 ROI：新人訓練時間縮短、SOP 查詢效率提升、偏差調查參考加速。</p>
+    </div>
+
+    <!-- BOTTOM LINE -->
+    <div class="bottom-line">
+        <div class="bottom-line-header">My Bottom Line</div>
+        <div class="bottom-line-item">
+            <div class="bottom-line-label">Core Insight</div>
+            <div class="bottom-line-text">
+                Markdown 和 DMS 不是競爭關係，而是<strong>分層協作</strong>。DMS（SimplerQMS/SharePoint）是合規的控制層——電子簽章、稽核軌跡、版本管理；Markdown 是 AI 的介面層——結構化、可切分、Token 高效。關鍵架構原則是<strong>單向資料流</strong>：永遠 DMS -> Markdown -> RAG，絕不反向。這樣 DMS 的合規地位不受影響，AI 也能獲得最佳的資料格式。
+            </div>
+        </div>
+        <div class="bottom-line-item">
+            <div class="bottom-line-label">Immediate Action</div>
+            <div class="bottom-line-text">
+                本週行動：(1) 選出 5 份通用 SOP（更衣、環境監控、設備操作），手動轉為 Markdown + YAML Front Matter 格式。(2) 上傳到 Claude Project，測試新人常見問題的回答品質和來源引用。(3) 草擬一份 1-page proposal 給管理層：「AI 輔助新人訓練系統 POC 計畫」——強調零基礎設施成本 + 可量化的訓練時間縮短。
+            </div>
+        </div>
+        <div class="bottom-line-item">
+            <div class="bottom-line-label">Gap to Fill</div>
+            <div class="bottom-line-text">
+                需要進一步研究的：(1) SimplerQMS 的 API 具體端點和權限模型——需與 IT 確認。(2) 組織內部對「將 SOP 內容投餵 AI」的合規態度——需與 QA Director 討論。(3) 脫敏規則的完整性驗證——可能需要 QA 審查清單。(4) Azure AI Search 與 Gemini Enterprise（組織已有）的整合可行性比較。
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <p>Supplementary Research Document | Generated: 2025-02-13</p>
+        <p>Sources: SimplerQMS Documentation, Azure AI Search RAG Guide, WHO TRS 1033 Annex 4, PMC AI/ML in GMP Review, Various RAG Implementation Case Studies</p>
+        <div class="chat-title">Suggested Title: [Integration] Markdown + DMS 雙軌架構 - GMP RAG 知識庫與新人訓練</div>
+    </div>
+
+</div>
+</body>
+</html>
